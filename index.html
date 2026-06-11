@@ -372,6 +372,27 @@ const house = makeHouse(-2.0, -2.0);
 scene.add(house);
 obstacles.push({x: -2.0, z: -2.0, r: 1.22});
 
+// ── Chimney smoke ─────────────────────────────────────────────────────────
+// World-space chimney top = house pos + chimney local + half chimney height
+const CHIMNEY_WORLD_X = -2.0 + 0.12 * 3.5;
+const CHIMNEY_WORLD_Y =  0.97 + 0.5 * 3.5 + 0.2 * 3.5 * 0.5 + 0.08;
+const CHIMNEY_WORLD_Z = -2.0 + 0.08 * 3.5;
+const SMOKE_COUNT = 12;
+const smokePuffs = [];
+for (let i = 0; i < SMOKE_COUNT; i++) {
+  const puff = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 8, 7),
+    new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0, depthWrite: false })
+  );
+  scene.add(puff);
+  smokePuffs.push({
+    mesh: puff,
+    life: i / SMOKE_COUNT,    // stagger start phases
+    xDrift: rnd(-0.04, 0.04),
+    zDrift: rnd(-0.04, 0.04)
+  });
+}
+
 // ── Hearts ─────────────────────────────────────────────────────────────────
 function makeHeart(size, color) {
   size = size||0.3;
@@ -773,6 +794,33 @@ function animate(){
     penguin._wingL.rotation.z =  0.28 + Math.sin(t*18)*0.18;
     penguin._wingR.rotation.z = -0.28 - Math.sin(t*18)*0.18;
   }
+
+  // ── Chimney smoke ──────────────────────────────────────────────────────
+  smokePuffs.forEach((s) => {
+    s.life += DT * 0.28;
+    if (s.life > 1) {
+      s.life -= 1;
+      s.xDrift = rnd(-0.04, 0.04);
+      s.zDrift = rnd(-0.04, 0.04);
+    }
+    const rise = s.life * 2.4;
+    const spread = s.life * 0.9;
+    s.mesh.position.set(
+      CHIMNEY_WORLD_X + Math.sin(t * 1.2 + s.life * 6) * spread * 0.5 + s.xDrift * rise * 2,
+      CHIMNEY_WORLD_Y + rise,
+      CHIMNEY_WORLD_Z + Math.cos(t * 1.1 + s.life * 5) * spread * 0.3 + s.zDrift * rise * 2
+    );
+    const sc = 0.12 + s.life * 0.55;
+    s.mesh.scale.setScalar(sc);
+    // Fade in quickly, linger, fade out gently
+    const opacity = s.life < 0.15
+      ? s.life / 0.15
+      : 1 - ((s.life - 0.15) / 0.85);
+    s.mesh.material.opacity = opacity * 0.38;
+    // Lighten from grey toward white as it rises
+    const grey = Math.floor(180 + s.life * 60);
+    s.mesh.material.color.setRGB(grey/255, grey/255, grey/255);
+  });
 
   controls.update();
   renderer.render(scene,camera);
