@@ -452,7 +452,7 @@ function makeTextSprite(text, options = {}) {
   sp.scale.set(scaleX,scaleY,1); return sp;
 }
 const textSprite = makeTextSprite('I love you baby \u{1F495}');
-// textSprite.position.set(0,5.2,0); scene.add(textSprite);
+textSprite.position.set(0,5.2,0); scene.add(textSprite);
 const subTextSprite = makeTextSprite([
   'thank you for making my life more beautiful',
   'and filling me with happiness everyday'
@@ -465,7 +465,7 @@ const subTextSprite = makeTextSprite([
   scaleY: 1.2,
   lineHeight: 44
 });
-// subTextSprite.position.set(0,4.35,0); scene.add(subTextSprite);
+subTextSprite.position.set(0,4.35,0); scene.add(subTextSprite);
 
 // ── Clouds ─────────────────────────────────────────────────────────────────
 function makeCloud(x,y,z,sc){
