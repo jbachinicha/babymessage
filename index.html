@@ -47,11 +47,51 @@
       background: rgba(111, 173, 133, 0.95);
       box-shadow: 0 8px 20px rgba(111, 173, 133, 0.28);
     }
+    #nightCycleBtn {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      background: rgba(58, 90, 176, 0.85);
+      color: #fff;
+      cursor: pointer;
+      z-index: 10;
+      box-shadow: 0 8px 18px rgba(40, 66, 138, 0.34);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      display: grid;
+      place-items: center;
+      padding: 0;
+    }
+    #nightCycleBtn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(40, 66, 138, 0.4);
+    }
+    #nightCycleBtn.is-active {
+      background: rgba(28, 44, 92, 0.92);
+      box-shadow: 0 8px 20px rgba(20, 32, 70, 0.45);
+    }
+    #nightCycleBtn .icon-day,
+    #nightCycleBtn .icon-night {
+      font-size: 20px;
+      line-height: 1;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      position: absolute;
+    }
+    #nightCycleBtn .icon-night { opacity: 0; transform: scale(0.8); }
+    #nightCycleBtn.is-night .icon-day { opacity: 0; transform: scale(0.8); }
+    #nightCycleBtn.is-night .icon-night { opacity: 1; transform: scale(1); }
   </style>
 </head>
 <body>
-<div id="hint">✨ drag to explore &nbsp;•&nbsp; pinch to zoom ✨</div>
+<div id="hint" style="text-align: center">✨ drag to explore ✨<br>✨ pinch to zoom ✨</div>
 <button id="followPenguinBtn" type="button">Follow the penguin</button>
+<button id="nightCycleBtn" type="button" aria-label="Enable night cycle" title="Enable night cycle">
+  <span class="icon-day" aria-hidden="true">☀</span>
+  <span class="icon-night" aria-hidden="true">🌙</span>
+</button>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js?v=1.0.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js?v=1.0.0"></script>
@@ -62,8 +102,16 @@ const APP_VERSION = '1.0.0';
 console.log(`🌺 Love Island v${APP_VERSION} loaded`);
 // ── Scene ──────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xfce8f4);
-scene.fog = new THREE.FogExp2(0xfce8f4, 0.022);
+const DAY_SKY_COLOR = new THREE.Color(0xfce8f4);
+const NIGHT_SKY_COLOR = new THREE.Color(0x0e1730);
+const DAY_FOG_COLOR = new THREE.Color(0xfce8f4);
+const NIGHT_FOG_COLOR = new THREE.Color(0x111a35);
+const DAY_SUN_COLOR = new THREE.Color(0xfff4e0);
+const NIGHT_SUN_COLOR = new THREE.Color(0xa7b6ff);
+const DAY_FILL_COLOR = new THREE.Color(0xd8d0ff);
+const NIGHT_FILL_COLOR = new THREE.Color(0x5c7bd1);
+scene.background = DAY_SKY_COLOR.clone();
+scene.fog = new THREE.FogExp2(DAY_FOG_COLOR.getHex(), 0.022);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 120);
 camera.position.set(0, 9, 16);
@@ -79,15 +127,23 @@ document.body.appendChild(renderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
-controls.minDistance = 7;
-controls.maxDistance = 22;
+const DEFAULT_MIN_DISTANCE = 7;
+const DEFAULT_MAX_DISTANCE = 22;
+const FOLLOW_MIN_DISTANCE = 2.4;
+const FOLLOW_MAX_DISTANCE = 9.5;
+const FOLLOW_SNAP_DISTANCE = 3.2;
+controls.minDistance = DEFAULT_MIN_DISTANCE;
+controls.maxDistance = DEFAULT_MAX_DISTANCE;
 controls.maxPolarAngle = Math.PI / 2.05;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.7;
 controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 
 const followPenguinBtn = document.getElementById('followPenguinBtn');
+const nightCycleBtn = document.getElementById('nightCycleBtn');
 let isFollowingPenguin = false;
+let isNightCycleEnabled = false;
+let nightBlend = 0;
 const followTarget = new THREE.Vector3();
 
 followPenguinBtn.addEventListener('click', () => {
@@ -97,11 +153,30 @@ followPenguinBtn.addEventListener('click', () => {
   controls.autoRotate = !isFollowingPenguin;
   if (isFollowingPenguin) {
     controls.target.set(penguin.position.x, penguin.position.y + 0.45, penguin.position.z);
+    controls.minDistance = FOLLOW_MIN_DISTANCE;
+    controls.maxDistance = FOLLOW_MAX_DISTANCE;
+    const zoomDirection = camera.position.clone().sub(controls.target);
+    if (zoomDirection.lengthSq() < 1e-4) zoomDirection.set(0, 0.35, 1);
+    zoomDirection.normalize();
+    camera.position.copy(controls.target).addScaledVector(zoomDirection, FOLLOW_SNAP_DISTANCE);
+    controls.update();
+  } else {
+    controls.minDistance = DEFAULT_MIN_DISTANCE;
+    controls.maxDistance = DEFAULT_MAX_DISTANCE;
   }
 });
 
+nightCycleBtn.addEventListener('click', () => {
+  isNightCycleEnabled = !isNightCycleEnabled;
+  nightCycleBtn.classList.toggle('is-active', isNightCycleEnabled);
+  const label = isNightCycleEnabled ? 'Disable night cycle' : 'Enable night cycle';
+  nightCycleBtn.setAttribute('aria-label', label);
+  nightCycleBtn.setAttribute('title', label);
+});
+
 // ── Lights ─────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffeef8, 1.1));
+const ambient = new THREE.AmbientLight(0xffeef8, 1.1);
+scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xfff4e0, 1.4);
 sun.position.set(6, 12, 6);
 sun.castShadow = true;
@@ -163,7 +238,10 @@ function makeFlower(x, z) {
   // Stem
   const stemMat = new THREE.MeshLambertMaterial({color:0x5aad72});
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025*sc,0.035*sc,0.5*sc,8), stemMat);
-  stem.position.y = 0.25*sc; g.add(stem);
+  stem.position.y = 0.25*sc;
+  stem.castShadow = true;
+  stem.receiveShadow = true;
+  g.add(stem);
 
   // Leaf
   const leafShape = new THREE.Shape();
@@ -172,7 +250,11 @@ function makeFlower(x, z) {
   const leafGeo = new THREE.ShapeGeometry(leafShape);
   const leafMesh = new THREE.Mesh(leafGeo, new THREE.MeshLambertMaterial({color:0x68b870,side:THREE.DoubleSide}));
   leafMesh.scale.setScalar(sc);
-  leafMesh.position.set(0.12*sc, 0.22*sc, 0); leafMesh.rotation.z = -0.4; g.add(leafMesh);
+  leafMesh.position.set(0.12*sc, 0.22*sc, 0);
+  leafMesh.rotation.z = -0.4;
+  leafMesh.castShadow = true;
+  leafMesh.receiveShadow = true;
+  g.add(leafMesh);
 
   // Petals
   const petalColor = pick([0xffadd4,0xffbfe4,0xff9ec8,0xffdce8,0xe8b0ff,0xffccaa,0xff85b3]);
@@ -181,13 +263,19 @@ function makeFlower(x, z) {
     const a = (i/6)*Math.PI*2;
     const petal = new THREE.Mesh(new THREE.SphereGeometry(0.095*sc,8,6), petalMat);
     petal.position.set(Math.cos(a)*0.17*sc, 0.52*sc, Math.sin(a)*0.17*sc);
-    petal.scale.set(1, 0.55, 1.5); g.add(petal);
+    petal.scale.set(1, 0.55, 1.5);
+    petal.castShadow = true;
+    petal.receiveShadow = true;
+    g.add(petal);
   }
 
   // Center disk
   const center = new THREE.Mesh(new THREE.CylinderGeometry(0.1*sc,0.1*sc,0.05*sc,12),
     new THREE.MeshLambertMaterial({color:0xffdd55}));
-  center.position.y = 0.54*sc; g.add(center);
+  center.position.y = 0.54*sc;
+  center.castShadow = true;
+  center.receiveShadow = true;
+  g.add(center);
 
   // Stamen dots
   for(let i=0;i<5;i++){
@@ -195,6 +283,8 @@ function makeFlower(x, z) {
     const dot = new THREE.Mesh(new THREE.SphereGeometry(0.022*sc,5,4),
       new THREE.MeshLambertMaterial({color:0xff9900}));
     dot.position.set(Math.cos(a)*0.07*sc, 0.58*sc, Math.sin(a)*0.07*sc);
+    dot.castShadow = true;
+    dot.receiveShadow = true;
     g.add(dot);
   }
 
@@ -341,7 +431,7 @@ function makeTextSprite(text, options = {}) {
   sp.scale.set(scaleX,scaleY,1); return sp;
 }
 const textSprite = makeTextSprite('I love you baby \u{1F495}');
-textSprite.position.set(0,5.2,0); scene.add(textSprite);
+// textSprite.position.set(0,5.2,0); scene.add(textSprite);
 const subTextSprite = makeTextSprite([
   'thank you for making my life more beautiful',
   'and filling me with happiness everyday'
@@ -354,7 +444,7 @@ const subTextSprite = makeTextSprite([
   scaleY: 1.2,
   lineHeight: 44
 });
-subTextSprite.position.set(0,4.35,0); scene.add(subTextSprite);
+// subTextSprite.position.set(0,4.35,0); scene.add(subTextSprite);
 
 // ── Clouds ─────────────────────────────────────────────────────────────────
 function makeCloud(x,y,z,sc){
@@ -376,6 +466,21 @@ for(let i=0;i<260;i++) verts.push(rnd(-22,22),rnd(0,18),rnd(-22,22));
 const sparkGeo=new THREE.BufferGeometry();
 sparkGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
 scene.add(new THREE.Points(sparkGeo,new THREE.PointsMaterial({color:0xffb0d8,size:0.13,transparent:true,opacity:0.75})));
+
+// ── Stars (night cycle) ───────────────────────────────────────────────────
+const starVerts = [];
+for (let i = 0; i < 460; i++) starVerts.push(rnd(-32, 32), rnd(8, 34), rnd(-32, 32));
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVerts, 3));
+const starMat = new THREE.PointsMaterial({
+  color: 0xeef5ff,
+  size: 0.16,
+  transparent: true,
+  opacity: 0,
+  depthWrite: false
+});
+const stars = new THREE.Points(starGeo, starMat);
+scene.add(stars);
 
 // ── Penguin ────────────────────────────────────────────────────────────────
 function makePenguin() {
@@ -455,6 +560,19 @@ penguin.scale.setScalar(0.85);
 penguin.traverse(child => { if (child instanceof THREE.Mesh) child.castShadow = true; });
 scene.add(penguin);
 
+const sprintAirPuffs = [];
+for (let i = 0; i < 14; i++) {
+  const puff = new THREE.Mesh(
+    new THREE.SphereGeometry(0.11, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })
+  );
+  puff.visible = false;
+  puff.castShadow = false;
+  puff.receiveShadow = false;
+  scene.add(puff);
+  sprintAirPuffs.push({ mesh: puff, age: i / 14, offset: rnd(-0.24, 0.24) });
+}
+
 const penguinState = {
   x: 0, z: 0,           // position on island
   dir: rnd(0, Math.PI*2), // facing direction
@@ -464,7 +582,17 @@ const penguinState = {
   turnTimer: rnd(1.5, 3.5), // time until next random turn
   turnDir: 0,
 };
-const GESTURES = ['wave','jump','spin','wiggle','tilt','wave'];
+const GESTURES = ['wave','jump','spin','wiggle','tilt','sprint','sprint','wave'];
+
+// Console helper: trigger sprint manually via window.runPenguinSprint()
+window.runPenguinSprint = function(durationSec) {
+  const d = Number(durationSec);
+  const sprintDuration = Number.isFinite(d) && d > 0 ? d : rnd(2.6, 5.4);
+  penguinState.gesture = 'sprint';
+  penguinState.gestureTick = sprintDuration;
+  penguinState.nextGesture = rnd(3.0, 6.0);
+  return { gesture: penguinState.gesture, duration: sprintDuration };
+};
 
 // ── Resize ─────────────────────────────────────────────────────────────────
 window.addEventListener('resize',()=>{
@@ -494,11 +622,26 @@ function animate(){
   ps.nextGesture  -= DT;
   ps.turnTimer    -= DT;
 
+  const cycleTarget = isNightCycleEnabled ? (Math.sin(t * 0.12) * 0.5 + 0.5) : 0;
+  nightBlend += (cycleTarget - nightBlend) * 0.02;
+  nightCycleBtn.classList.toggle('is-night', nightBlend > 0.5);
+  scene.background.copy(DAY_SKY_COLOR).lerp(NIGHT_SKY_COLOR, nightBlend);
+  scene.fog.color.copy(DAY_FOG_COLOR).lerp(NIGHT_FOG_COLOR, nightBlend);
+  ambient.intensity = 1.1 - 0.55 * nightBlend;
+  sun.intensity = 1.4 - 1.08 * nightBlend;
+  fill.intensity = 0.5 + 0.34 * nightBlend;
+  sun.color.copy(DAY_SUN_COLOR).lerp(NIGHT_SUN_COLOR, nightBlend);
+  fill.color.copy(DAY_FILL_COLOR).lerp(NIGHT_FILL_COLOR, nightBlend);
+  const starFade = Math.max(0, (nightBlend - 0.2) / 0.8);
+  const twinkle = 0.82 + 0.18 * Math.sin(t * 2.7);
+  starMat.opacity = starFade * twinkle;
+  stars.rotation.y += 0.00025 + nightBlend * 0.00065;
+
   // Pick new random gesture
   if(ps.nextGesture <= 0 && ps.gestureTick <= 0) {
     ps.gesture = GESTURES[Math.floor(Math.random()*GESTURES.length)];
-    ps.gestureTick = rnd(1.5, 3.0);
-    ps.nextGesture = rnd(4.0, 8.0);
+    ps.gestureTick = ps.gesture==='sprint' ? rnd(2.6, 5.4) : rnd(1.5, 3.0);
+    ps.nextGesture = rnd(3.0, 6.0);
     if(ps.gesture==='jump') ps.jumpVel = 0.055;
   }
   if(ps.gestureTick <= 0) ps.gesture = 'walk';
@@ -510,9 +653,9 @@ function animate(){
   }
 
   // Walk forward in facing direction (except paused gestures)
-  const isMoving = ps.gesture==='walk' || ps.gesture==='wiggle' || ps.gesture==='spin';
+  const isMoving = ps.gesture==='walk' || ps.gesture==='wiggle' || ps.gesture==='spin' || ps.gesture==='sprint';
   if(isMoving) {
-    const spd = ps.gesture==='spin' ? ps.speed*0.4 : ps.speed;
+    const spd = ps.gesture==='spin' ? ps.speed*0.4 : (ps.gesture==='sprint' ? ps.speed*2.4 : ps.speed);
     const nx = ps.x + Math.sin(ps.dir) * spd;
     const nz = ps.z + Math.cos(ps.dir) * spd;
 
@@ -548,15 +691,41 @@ function animate(){
     controls.target.lerp(followTarget, 0.14);
   }
 
+  const isSprinting = ps.gesture === 'sprint';
+  sprintAirPuffs.forEach((puff, i) => {
+    if (!isSprinting) {
+      puff.mesh.visible = false;
+      puff.mesh.material.opacity = 0;
+      return;
+    }
+    puff.age += DT * (2.3 + i * 0.08);
+    if (puff.age > 1) puff.age -= 1;
+
+    const side = puff.offset;
+    const back = 0.3 + puff.age * 1.8;
+    const rise = 0.05 + puff.age * 0.35;
+    const jitter = Math.sin(t * 13 + i * 1.7) * 0.045;
+
+    puff.mesh.position.set(
+      penguin.position.x - Math.sin(ps.dir) * back + Math.cos(ps.dir) * side,
+      penguin.position.y + rise + jitter,
+      penguin.position.z - Math.cos(ps.dir) * back - Math.sin(ps.dir) * side
+    );
+    puff.mesh.scale.set(0.35 + puff.age * 1.05, 0.12 + puff.age * 0.32, 0.35 + puff.age * 1.05);
+    puff.mesh.material.opacity = (1 - puff.age) * 0.82;
+    puff.mesh.visible = true;
+  });
+
   // Face walk direction
   penguin.rotation.y = ps.dir;
 
   // Waddle sway
-  const waddleFreq = 8;
+  const waddleFreq = isSprinting ? 15 : 8;
   penguin.rotation.z = isMoving ? Math.sin(t * waddleFreq) * 0.08 : 0;
+  penguin.rotation.x = 0;
 
   // Feet bob
-  const footSwing = isMoving ? Math.sin(t * waddleFreq) * 0.3 : 0;
+  const footSwing = isMoving ? Math.sin(t * waddleFreq) * (isSprinting ? 0.45 : 0.3) : 0;
   penguin._footL.rotation.x =  footSwing;
   penguin._footR.rotation.x = -footSwing;
 
@@ -597,6 +766,12 @@ function animate(){
     penguin._head.rotation.z = Math.sin(t*14)*0.25;
     penguin._wingL.rotation.z =  0.6 + Math.sin(t*10)*0.2;
     penguin._wingR.rotation.z = -0.6 - Math.sin(t*10)*0.2;
+  }
+  else if(ps.gesture==='sprint') {
+    penguin.rotation.x = -0.12;
+    penguin._head.rotation.x = -0.22;
+    penguin._wingL.rotation.z =  0.28 + Math.sin(t*18)*0.18;
+    penguin._wingR.rotation.z = -0.28 - Math.sin(t*18)*0.18;
   }
 
   controls.update();
