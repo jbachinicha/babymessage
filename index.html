@@ -175,15 +175,15 @@ nightCycleBtn.addEventListener('click', () => {
 });
 
 // ── Lights ─────────────────────────────────────────────────────────────────
-const ambient = new THREE.AmbientLight(0xffeef8, 1.1);
+const ambient = new THREE.AmbientLight(0xffeef8, 0.65);
 scene.add(ambient);
-const sun = new THREE.DirectionalLight(0xfff4e0, 1.4);
+const sun = new THREE.DirectionalLight(0xfff4e0, 0.85);
 sun.position.set(6, 12, 6);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
 Object.assign(sun.shadow.camera, { near:0.5, far:40, left:-8, right:8, top:8, bottom:-8 });
 scene.add(sun);
-const fill = new THREE.DirectionalLight(0xd8d0ff, 0.5);
+const fill = new THREE.DirectionalLight(0xd8d0ff, 0.3);
 fill.position.set(-5, 4, -5);
 scene.add(fill);
 
@@ -627,9 +627,9 @@ function animate(){
   nightCycleBtn.classList.toggle('is-night', nightBlend > 0.5);
   scene.background.copy(DAY_SKY_COLOR).lerp(NIGHT_SKY_COLOR, nightBlend);
   scene.fog.color.copy(DAY_FOG_COLOR).lerp(NIGHT_FOG_COLOR, nightBlend);
-  ambient.intensity = 1.1 - 0.55 * nightBlend;
-  sun.intensity = 1.4 - 1.08 * nightBlend;
-  fill.intensity = 0.5 + 0.34 * nightBlend;
+  ambient.intensity = 0.65 - 0.45 * nightBlend;
+  sun.intensity = 0.85 - 0.75 * nightBlend;
+  fill.intensity = 0.3 + 0.35 * nightBlend;
   sun.color.copy(DAY_SUN_COLOR).lerp(NIGHT_SUN_COLOR, nightBlend);
   fill.color.copy(DAY_FILL_COLOR).lerp(NIGHT_FILL_COLOR, nightBlend);
   const starFade = Math.max(0, (nightBlend - 0.2) / 0.8);
