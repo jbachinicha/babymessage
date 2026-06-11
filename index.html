@@ -439,12 +439,24 @@ const penguinThoughts = [
 // Create speech bubble sprite with background
 const createSpeechBubble = (text) => {
   const canvas = document.createElement('canvas');
-  canvas.width = 400;
-  canvas.height = 120;
+  canvas.width = 512;
+  canvas.height = 140;
   const ctx = canvas.getContext('2d');
   
+  // Measure text to adjust font size if needed
+  let fontSize = 32;
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  let textWidth = ctx.measureText(text).width;
+  
+  // Reduce font size if text is too wide
+  while (textWidth > canvas.width - 60 && fontSize > 20) {
+    fontSize -= 2;
+    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+    textWidth = ctx.measureText(text).width;
+  }
+  
   // Draw rounded rectangle background
-  const padding = 15;
+  const padding = 20;
   const cornerRadius = 20;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
@@ -472,14 +484,14 @@ const createSpeechBubble = (text) => {
   ctx.fill();
   ctx.stroke();
   
-  // Draw text
+  // Draw text with proper font
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
   ctx.shadowColor = 'rgba(100,100,100,0.3)';
   ctx.shadowBlur = 4;
-  ctx.font = 'bold 32px Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#333333';
-  ctx.fillText(text, canvas.width / 2, 50);
+  ctx.fillText(text, canvas.width / 2, 55);
   
   return canvas;
 };
@@ -491,7 +503,7 @@ const speechBubble = new THREE.Sprite(
     opacity: 0
   })
 );
-speechBubble.scale.set(2.0, 0.8, 1);
+speechBubble.scale.set(2.2, 0.9, 1);
 speechBubble.position.set(0, 1.5, 0); // Position above penguin
 penguinPivot.add(speechBubble); // Attach to penguin so it follows
 
