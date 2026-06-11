@@ -373,6 +373,7 @@ function makePenguin() {
 const penguin = makePenguin();
 penguin.position.set(2.2, 0.97, 0);
 penguin.scale.setScalar(0.85);
+penguin.traverse(child => { if (child instanceof THREE.Mesh) child.castShadow = true; });
 scene.add(penguin);
 
 const penguinState = {
